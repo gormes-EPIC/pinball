@@ -19,6 +19,7 @@ WALL_TOP = 38
 FLIPPER_Y = HEIGHT - 85
 LEFT_PIVOT = (WIDTH // 2 - 98, FLIPPER_Y)
 RIGHT_PIVOT = (WIDTH // 2 + 98, FLIPPER_Y)
+GUIDE_START_Y = 375   # height on the side walls where the angled sections begin
 LEFT_FLIP_REST = 35
 LEFT_FLIP_ACTIVE = -35
 RIGHT_FLIP_REST = 145
@@ -312,8 +313,8 @@ class Game:
         lx, ly = LEFT_PIVOT
         rx, ry = RIGHT_PIVOT
         self.guide_rails = [
-            (WALL_LEFT, HEIGHT - 25, lx, ly),
-            (WALL_RIGHT, HEIGHT - 25, rx, ry),
+            (WALL_LEFT, GUIDE_START_Y, lx, ly),
+            (WALL_RIGHT, GUIDE_START_Y, rx, ry),
         ]
 
     def spawn_particles(self, x, y, color, n=10):
@@ -403,18 +404,30 @@ class Game:
         pygame.draw.rect(self.screen, WALL_COLOR, (WALL_RIGHT, 0, WIDTH - WALL_RIGHT, HEIGHT))
         pygame.draw.rect(self.screen, WALL_COLOR, (0, 0, WIDTH, WALL_TOP))
 
-        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_LEFT, WALL_TOP), (WALL_LEFT, HEIGHT), 2)
-        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_RIGHT, WALL_TOP), (WALL_RIGHT, HEIGHT), 2)
+        # Solid angled wall sections in the lower corners — triangles pointing inward toward flippers
+        lx, ly = LEFT_PIVOT
+        rx, ry = RIGHT_PIVOT
+        pygame.draw.polygon(self.screen, WALL_COLOR, [
+            (WALL_LEFT, GUIDE_START_Y),
+            (WALL_LEFT, HEIGHT),
+            (lx, ly),
+        ])
+        pygame.draw.polygon(self.screen, WALL_COLOR, [
+            (WALL_RIGHT, GUIDE_START_Y),
+            (WALL_RIGHT, HEIGHT),
+            (rx, ry),
+        ])
+
+        # Main wall edge highlights
+        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_LEFT, WALL_TOP), (WALL_LEFT, GUIDE_START_Y), 2)
+        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_RIGHT, WALL_TOP), (WALL_RIGHT, GUIDE_START_Y), 2)
         pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_LEFT, WALL_TOP), (WALL_RIGHT, WALL_TOP), 2)
 
-        # Guide rails
-        for rail in self.guide_rails:
-            pygame.draw.line(self.screen, LIGHT_GRAY,
-                             (int(rail[0]), int(rail[1])), (int(rail[2]), int(rail[3])), 3)
+        # Angled guide edge highlights (the inner face of each lower wall)
+        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_LEFT, GUIDE_START_Y), (lx, ly), 3)
+        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_RIGHT, GUIDE_START_Y), (rx, ry), 3)
 
         # Drain zone between flipper pivots
-        lx, ly = LEFT_PIVOT
-        rx = RIGHT_PIVOT[0]
         pygame.draw.rect(self.screen, (8, 4, 18),
                          (lx, ly + FLIPPER_THICKNESS + 4, rx - lx, HEIGHT - ly))
 

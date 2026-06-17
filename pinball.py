@@ -3,7 +3,6 @@ import sys
 import math
 import random
 
-# Starting values
 WIDTH, HEIGHT = 1024, 600
 FPS = 60
 GRAVITY = 0.28
@@ -20,7 +19,6 @@ WALL_TOP = 38
 FLIPPER_Y = HEIGHT - 85
 LEFT_PIVOT = (WIDTH // 2 - 98, FLIPPER_Y)
 RIGHT_PIVOT = (WIDTH // 2 + 98, FLIPPER_Y)
-GUIDE_START_Y = 375   # height on the side walls where the angled sections begin
 LEFT_FLIP_REST = 35
 LEFT_FLIP_ACTIVE = -35
 RIGHT_FLIP_REST = 145
@@ -72,14 +70,14 @@ class Ball:
         self.vx = speed * math.cos(math.radians(angle))
         self.vy = speed * math.sin(math.radians(angle))
 
-    def update(self):
-        self.vy += GRAVITY
+    def sub_step(self, dt):
+        self.vy += GRAVITY * dt
         speed = math.sqrt(self.vx ** 2 + self.vy ** 2)
         if speed > 16:
             self.vx = self.vx / speed * 16
             self.vy = self.vy / speed * 16
-        self.x += self.vx
-        self.y += self.vy
+        self.x += self.vx * dt
+        self.y += self.vy * dt
         if self.x - BALL_RADIUS < WALL_LEFT:
             self.x = WALL_LEFT + BALL_RADIUS
             self.vx = abs(self.vx) * 0.82
@@ -314,8 +312,8 @@ class Game:
         lx, ly = LEFT_PIVOT
         rx, ry = RIGHT_PIVOT
         self.guide_rails = [
-            (WALL_LEFT, GUIDE_START_Y, lx, ly),
-            (WALL_RIGHT, GUIDE_START_Y, rx, ry),
+            (WALL_LEFT, HEIGHT - 25, lx, ly),
+            (WALL_RIGHT, HEIGHT - 25, rx, ry),
         ]
 
     def spawn_particles(self, x, y, color, n=10):
@@ -353,15 +351,19 @@ class Game:
 
     def update(self):
         self.handle_input()
-        self.ball.update()
         self.left_flipper.update()
         self.right_flipper.update()
 
-        self.left_flipper.collide(self.ball)
-        self.right_flipper.collide(self.ball)
-
-        for rail in self.guide_rails:
-            line_ball_collide(self.ball, *rail)
+        # Sub-step physics so the ball can't tunnel through thin surfaces at high speed.
+        # Max ball speed is 16 px/frame; 4 steps → ≤4 px/step, well under the 17 px collision zone.
+        SUB_STEPS = 4
+        dt = 1.0 / SUB_STEPS
+        for _ in range(SUB_STEPS):
+            self.ball.sub_step(dt)
+            self.left_flipper.collide(self.ball)
+            self.right_flipper.collide(self.ball)
+            for rail in self.guide_rails:
+                line_ball_collide(self.ball, *rail)
 
         for b in self.bumpers:
             b.update()
@@ -405,30 +407,18 @@ class Game:
         pygame.draw.rect(self.screen, WALL_COLOR, (WALL_RIGHT, 0, WIDTH - WALL_RIGHT, HEIGHT))
         pygame.draw.rect(self.screen, WALL_COLOR, (0, 0, WIDTH, WALL_TOP))
 
-        # Solid angled wall sections in the lower corners — triangles pointing inward toward flippers
-        lx, ly = LEFT_PIVOT
-        rx, ry = RIGHT_PIVOT
-        pygame.draw.polygon(self.screen, WALL_COLOR, [
-            (WALL_LEFT, GUIDE_START_Y),
-            (WALL_LEFT, HEIGHT),
-            (lx, ly),
-        ])
-        pygame.draw.polygon(self.screen, WALL_COLOR, [
-            (WALL_RIGHT, GUIDE_START_Y),
-            (WALL_RIGHT, HEIGHT),
-            (rx, ry),
-        ])
-
-        # Main wall edge highlights
-        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_LEFT, WALL_TOP), (WALL_LEFT, GUIDE_START_Y), 2)
-        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_RIGHT, WALL_TOP), (WALL_RIGHT, GUIDE_START_Y), 2)
+        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_LEFT, WALL_TOP), (WALL_LEFT, HEIGHT), 2)
+        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_RIGHT, WALL_TOP), (WALL_RIGHT, HEIGHT), 2)
         pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_LEFT, WALL_TOP), (WALL_RIGHT, WALL_TOP), 2)
 
-        # Angled guide edge highlights (the inner face of each lower wall)
-        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_LEFT, GUIDE_START_Y), (lx, ly), 3)
-        pygame.draw.line(self.screen, LIGHT_GRAY, (WALL_RIGHT, GUIDE_START_Y), (rx, ry), 3)
+        # Guide rails
+        for rail in self.guide_rails:
+            pygame.draw.line(self.screen, LIGHT_GRAY,
+                             (int(rail[0]), int(rail[1])), (int(rail[2]), int(rail[3])), 3)
 
         # Drain zone between flipper pivots
+        lx, ly = LEFT_PIVOT
+        rx = RIGHT_PIVOT[0]
         pygame.draw.rect(self.screen, (8, 4, 18),
                          (lx, ly + FLIPPER_THICKNESS + 4, rx - lx, HEIGHT - ly))
 

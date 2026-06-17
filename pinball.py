@@ -3,6 +3,7 @@ import sys
 import math
 import random
 
+# Starting values
 WIDTH, HEIGHT = 1024, 600
 FPS = 60
 GRAVITY = 0.28
